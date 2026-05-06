@@ -4,7 +4,7 @@ import numpy as np
 from sklearn import tree, set_config  # Arvore de decisão e plot tree
 from sklearn.metrics import accuracy_score   # Acurácia
 from sklearn.compose import ColumnTransformer # Tratar as colunas nominais de forma unificada
-from sklearn.preprocessing import OrdinalEncoder,OneHotEncoder, KBinsDiscretizer  # Transformar coluna ordinária
+from sklearn.preprocessing import OrdinalEncoder,OneHotEncoder, KBinsDiscretizer, StandardScaler  # Transformar coluna ordinária, knn para discretização, padronização
 from sklearn.model_selection import train_test_split  # Separar a parte de teste
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay  # Matriz de confusão
 import matplotlib.pyplot as plt  # Plot na tabela
@@ -31,18 +31,35 @@ preprocessor = ColumnTransformer(
 
 df = preprocessor.fit_transform(df)
 
-print(df)
-
 # Risk
 df['Risk'] = (df['Risk'] == 'good').astype(int) # bad -> 0; good -> 1;
 
-encoder = OrdinalEncoder(handle_unknown='use_encoded_value',unknown_value= -1,categories=[['little', 'moderate', 'rich']])
-imputer = KNNImputer(n_neighbors=5) #inicializando kNN e encoder
+fully_df = df.dropna()
+na_df = df[df.isna().any(axis=1)]
 
-X = df.drop('Risk', axis=1)
-y = df['Risk']
+imputer = KNNImputer(n_neighbors=5)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state=42, stratify = y)
+
+X = fully_df.drop('Risk', axis=1)
+y = fully_df['Risk']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2*len(df)/len(fully_df), random_state=42, stratify = y)
+
+X_train = pd.concat([X_train, na_df.drop('Risk', axis=1)])
+y_train = pd.concat([y_train, na_df['Risk']])
+
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+
+imputer = KNNImputer(n_neighbors=5)
+X_train = imputer.fit_transform(X_train)
+
+X_train = pd.DataFrame(
+    scaler.inverse_transform(X_train),
+    columns=scaler.get_feature_names_out()
+)
+
 
 max=-1
 

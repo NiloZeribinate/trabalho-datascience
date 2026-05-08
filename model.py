@@ -14,10 +14,13 @@ set_config(transform_output="pandas")
 
 df=pd.read_csv("class_german_credit.csv")
 
-# Sex
+
+# Treating cols
+
+# - Sex
 df['Sex'] = (df['Sex'] == 'male').astype(int) # female -> 0; male -> 1;
 
-# Colunas nominais
+# - Nominal Columns
 preprocessor = ColumnTransformer(
     transformers=[
         ('nom_housing', OrdinalEncoder(categories=[['free', 'rent', 'own']]), ['Housing']),
@@ -31,15 +34,16 @@ preprocessor = ColumnTransformer(
 
 df = preprocessor.fit_transform(df)
 
-# Risk
+# - Risk
 df['Risk'] = (df['Risk'] == 'good').astype(int) # bad -> 0; good -> 1;
 
+
+# Separating the NaN from complete rows
 fully_df = df.dropna()
 na_df = df[df.isna().any(axis=1)]
 
-imputer = KNNImputer(n_neighbors=5)
 
-
+# Separating data to training and test
 X = fully_df.drop('Risk', axis=1)
 y = fully_df['Risk']
 
@@ -49,18 +53,24 @@ X_train = pd.concat([X_train, na_df.drop('Risk', axis=1)])
 y_train = pd.concat([y_train, na_df['Risk']])
 
 
+# Preparing training data
+
+# - Normalizing data
 scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train)
 
+# - Filling missing values with kNN
 imputer = KNNImputer(n_neighbors=5)
 X_train = imputer.fit_transform(X_train)
 
+# - Reversing data normalization
 X_train = pd.DataFrame(
     scaler.inverse_transform(X_train),
     columns=scaler.get_feature_names_out()
 )
 
 
+# Seeking the best discretizing for Age and Credit Amount
 max=-1
 
 for i in range(2,20):
@@ -69,9 +79,10 @@ for i in range(2,20):
         encode='ordinal',
         strategy='uniform'
     )
+
+    # Making copies
     X_train_copy = X_train.copy()
     X_test_copy = X_test.copy()
-    # usar copias
 
     X_train_copy['Age'] = age_discretizer.fit_transform(X_train[['Age']])
     X_test_copy['Age'] = age_discretizer.transform(X_test[['Age']])
@@ -81,10 +92,10 @@ for i in range(2,20):
         X_test_copy['Credit amount'] = credit_discretizer.transform(X_test[['Credit amount']])
         clf = tree.DecisionTreeClassifier(class_weight='balanced',random_state=42)
 
-        # Treinamento
+        # Training
         clf.fit(X_train_copy, y_train)
 
-        # Teste
+        # Testing
         y_pred = clf.predict(X_test_copy)
 
         acuracia = accuracy_score(y_test, y_pred)
@@ -92,14 +103,13 @@ for i in range(2,20):
             max=acuracia
             print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {i} bins de idade e {j} bins de credit amount')
 
-cm = confusion_matrix(y_test, y_pred)
-tree.plot_tree(clf)
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
-disp.plot(cmap='Blues')
-plt.title('Matriz de Confusão')
+# cm = confusion_matrix(y_test, y_pred)
+# tree.plot_tree(clf)
+# disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
+# disp.plot(cmap='Blues')
+# plt.title('Matriz de Confusão')
+# plt.show()
 
 
-importancia = pd.Series(clf.feature_importances_, index=X.columns).sort_values(ascending=False)
-print("Importância das colunas:\n", importancia)
-
-plt.show()
+importances = pd.Series(clf.feature_importances_, index=X.columns).sort_values(ascending=False)
+print("Importância das colunas:\n", importances)

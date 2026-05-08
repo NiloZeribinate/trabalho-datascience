@@ -47,7 +47,7 @@ na_df = df[df.isna().any(axis=1)]
 X = fully_df.drop('Risk', axis=1)
 y = fully_df['Risk']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2*len(df)/len(fully_df), random_state=42, stratify = y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2*len(df)/len(fully_df), random_state=42, stratify=y)
 
 X_train = pd.concat([X_train, na_df.drop('Risk', axis=1)])
 y_train = pd.concat([y_train, na_df['Risk']])
@@ -73,23 +73,24 @@ X_train = pd.DataFrame(
 # Seeking the best discretizing for Age and Credit Amount
 max=-1
 
-for i in range(2,20):
-    age_discretizer = KBinsDiscretizer(
-        n_bins=i,
-        encode='ordinal',
-        strategy='uniform'
-    )
+for i in range(2, 7):
 
     # Making copies
     X_train_copy = X_train.copy()
     X_test_copy = X_test.copy()
 
+    # Age discretization
+    age_discretizer = KBinsDiscretizer(n_bins=i, encode='ordinal', strategy='quantile')
     X_train_copy['Age'] = age_discretizer.fit_transform(X_train[['Age']])
     X_test_copy['Age'] = age_discretizer.transform(X_test[['Age']])
-    for j in range(2,20):
-        credit_discretizer = KBinsDiscretizer(n_bins=j,encode='ordinal',strategy='uniform')
+    
+    for j in range(2, 40):
+        # Credit discretization
+        credit_discretizer = KBinsDiscretizer(n_bins=j, encode='ordinal', strategy='quantile')
         X_train_copy['Credit amount'] = credit_discretizer.fit_transform(X_train[['Credit amount']])
         X_test_copy['Credit amount'] = credit_discretizer.transform(X_test[['Credit amount']])
+        
+        # Creating Decision Tree
         clf = tree.DecisionTreeClassifier(class_weight='balanced',random_state=42)
 
         # Training
@@ -103,13 +104,16 @@ for i in range(2,20):
             max=acuracia
             print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {i} bins de idade e {j} bins de credit amount')
 
-# cm = confusion_matrix(y_test, y_pred)
+# Ploting the tree
 # tree.plot_tree(clf)
-# disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
-# disp.plot(cmap='Blues')
-# plt.title('Matriz de Confusão')
-# plt.show()
 
+# Ploting the Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
+disp.plot(cmap='Blues')
+plt.title('Matriz de Confusão')
+plt.show()
 
+# Columns importance
 importances = pd.Series(clf.feature_importances_, index=X.columns).sort_values(ascending=False)
 print("Importância das colunas:\n", importances)

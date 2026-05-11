@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split  # Separar a parte de teste
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay  # Matriz de confusão
 import matplotlib.pyplot as plt  # Plot na tabela
 from sklearn.impute import KNNImputer
-from imblearn.combine import SMOTETomek
+from imblearn.over_sampling import SMOTE
 
 set_config(transform_output="pandas")
 
@@ -70,13 +70,20 @@ X_train = pd.DataFrame(
     columns=scaler.get_feature_names_out()
 )
 
-# - SMOTE + Tomek Links
-smt = SMOTETomek(random_state=42)
+# - SMOTE
+smt = SMOTE(random_state=42, sampling_strategy='all')
 X_res, y_res = smt.fit_resample(X_train, y_train)
 
-print(f'Quantidade de elementos em X_train: {len(X_train)}; quantidade em X_res: {len(X_res)}')
+print(f'Proporção anterior: {y_train.value_counts()} Nova proporção: {y_res.value_counts()}')
+
+print(X_res.tail(20))
 
 [X_train, y_train] = [X_res, y_res]
+
+# - Rounding Columns
+
+X_train = X_train.round()
+
 
 # Seeking the best discretizing for Age and Credit Amount
 

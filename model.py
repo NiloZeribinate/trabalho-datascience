@@ -71,9 +71,20 @@ X_train = pd.DataFrame(
 
 
 # Seeking the best discretizing for Age and Credit Amount
+
+# - Creating Decision Tree
+clf = tree.DecisionTreeClassifier(class_weight='balanced',random_state=42)
+
+# - Preparing vars
 max=-1
 
-for i in range(2, 7):
+params = {
+    'Age': 4,
+    'Credit amount': 28,
+    'Duration': 32
+}
+
+for i in range(2, 5):
 
     # Making copies
     X_train_copy = X_train.copy()
@@ -84,25 +95,47 @@ for i in range(2, 7):
     X_train_copy['Age'] = age_discretizer.fit_transform(X_train[['Age']])
     X_test_copy['Age'] = age_discretizer.transform(X_test[['Age']])
     
-    for j in range(2, 40):
+    for j in range(10, 40):
         # Credit discretization
         credit_discretizer = KBinsDiscretizer(n_bins=j, encode='ordinal', strategy='quantile')
         X_train_copy['Credit amount'] = credit_discretizer.fit_transform(X_train[['Credit amount']])
         X_test_copy['Credit amount'] = credit_discretizer.transform(X_test[['Credit amount']])
         
-        # Creating Decision Tree
-        clf = tree.DecisionTreeClassifier(class_weight='balanced',random_state=42)
 
-        # Training
-        clf.fit(X_train_copy, y_train)
+        for k in range(2, 40):
+            # Duration discretization
+            duration_discretizer = KBinsDiscretizer(n_bins=k, encode='ordinal', strategy='uniform')
+            X_train_copy['Duration'] = duration_discretizer.fit_transform(X_train[['Duration']])
+            X_test_copy['Duration'] = duration_discretizer.transform(X_test[['Duration']])
 
-        # Testing
-        y_pred = clf.predict(X_test_copy)
+            # Training
+            clf.fit(X_train_copy, y_train)
 
-        acuracia = accuracy_score(y_test, y_pred)
-        if acuracia>max:
-            max=acuracia
-            print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {i} bins de idade e {j} bins de credit amount')
+            # Testing
+            y_pred = clf.predict(X_test_copy)
+
+            acuracia = accuracy_score(y_test, y_pred)
+            if acuracia > max:
+                max=acuracia
+
+                params['Age'] = i
+                params['Credit amount'] = j
+                params['Duration'] = k
+                
+                print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {i} bins de idade, {j} bins de credit amount, {k} bins de duration')
+
+for key in params.keys():
+    discretizer  = KBinsDiscretizer(n_bins=params[key], encode='ordinal', strategy='quantile')
+
+    X_train[key] = discretizer.fit_transform(X_train[[key]])
+    X_test[key]  = discretizer.transform(X_test[[key]])
+
+# Training
+clf.fit(X_train, y_train)
+
+# Testing
+y_pred = clf.predict(X_test)
+
 
 # Ploting the tree
 # tree.plot_tree(clf)
@@ -117,3 +150,4 @@ plt.show()
 # Columns importance
 importances = pd.Series(clf.feature_importances_, index=X.columns).sort_values(ascending=False)
 print("Importância das colunas:\n", importances)
+print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {params['Age']} bins de idade, {params['Credit amount']} bins de credit amount, {params['Duration']} bins de duration')

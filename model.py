@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split  # Separar a parte de teste
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay  # Matriz de confusão
 import matplotlib.pyplot as plt  # Plot na tabela
 from sklearn.impute import KNNImputer
+from imblearn.combine import SMOTETomek
 
 set_config(transform_output="pandas")
 
@@ -69,6 +70,13 @@ X_train = pd.DataFrame(
     columns=scaler.get_feature_names_out()
 )
 
+# - SMOTE + Tomek Links
+smt = SMOTETomek(random_state=42)
+X_res, y_res = smt.fit_resample(X_train, y_train)
+
+print(f'Quantidade de elementos em X_train: {len(X_train)}; quantidade em X_res: {len(X_res)}')
+
+[X_train, y_train] = [X_res, y_res]
 
 # Seeking the best discretizing for Age and Credit Amount
 
@@ -84,46 +92,6 @@ params = {
     'Duration': 32
 }
 
-for i in range(2, 5):
-
-    # Making copies
-    X_train_copy = X_train.copy()
-    X_test_copy = X_test.copy()
-
-    # Age discretization
-    age_discretizer = KBinsDiscretizer(n_bins=i, encode='ordinal', strategy='quantile')
-    X_train_copy['Age'] = age_discretizer.fit_transform(X_train[['Age']])
-    X_test_copy['Age'] = age_discretizer.transform(X_test[['Age']])
-    
-    for j in range(10, 40):
-        # Credit discretization
-        credit_discretizer = KBinsDiscretizer(n_bins=j, encode='ordinal', strategy='quantile')
-        X_train_copy['Credit amount'] = credit_discretizer.fit_transform(X_train[['Credit amount']])
-        X_test_copy['Credit amount'] = credit_discretizer.transform(X_test[['Credit amount']])
-        
-
-        for k in range(2, 40):
-            # Duration discretization
-            duration_discretizer = KBinsDiscretizer(n_bins=k, encode='ordinal', strategy='uniform')
-            X_train_copy['Duration'] = duration_discretizer.fit_transform(X_train[['Duration']])
-            X_test_copy['Duration'] = duration_discretizer.transform(X_test[['Duration']])
-
-            # Training
-            clf.fit(X_train_copy, y_train)
-
-            # Testing
-            y_pred = clf.predict(X_test_copy)
-
-            acuracia = accuracy_score(y_test, y_pred)
-            if acuracia > max:
-                max=acuracia
-
-                params['Age'] = i
-                params['Credit amount'] = j
-                params['Duration'] = k
-                
-                print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {i} bins de idade, {j} bins de credit amount, {k} bins de duration')
-
 for key in params.keys():
     discretizer  = KBinsDiscretizer(n_bins=params[key], encode='ordinal', strategy='quantile')
 
@@ -136,9 +104,12 @@ clf.fit(X_train, y_train)
 # Testing
 y_pred = clf.predict(X_test)
 
+acuracia = accuracy_score(y_test, y_pred)
 
-# Ploting the tree
-# tree.plot_tree(clf)
+# Columns importance
+importances = pd.Series(clf.feature_importances_, index=X.columns).sort_values(ascending=False)
+print("Importância das colunas:\n", importances)
+print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {params['Age']} bins de idade, {params['Credit amount']} bins de credit amount, {params['Duration']} bins de duration')
 
 # Ploting the Confusion Matrix
 cm = confusion_matrix(y_test, y_pred)
@@ -146,8 +117,3 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=clf.classes_)
 disp.plot(cmap='Blues')
 plt.title('Matriz de Confusão')
 plt.show()
-
-# Columns importance
-importances = pd.Series(clf.feature_importances_, index=X.columns).sort_values(ascending=False)
-print("Importância das colunas:\n", importances)
-print(f'A acurácia do modelo foi de {acuracia*100:.2f}% com {params['Age']} bins de idade, {params['Credit amount']} bins de credit amount, {params['Duration']} bins de duration')

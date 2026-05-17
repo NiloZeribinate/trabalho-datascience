@@ -5,7 +5,7 @@ from sklearn import tree, set_config
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 from sklearn.pipeline import Pipeline
 
 # Configure sklearn to output pandas DataFrame
@@ -39,28 +39,57 @@ pipeline = Pipeline([
     ('model', tree.DecisionTreeClassifier(class_weight='balanced', random_state=42))
 ])
 
+
+# Cross-Validation
+param_grid = {
+    'model__criterion': ['gini', 'entropy', 'log_loss'],
+    'model__max_depth': [None, 2, 3, 4, 5, 6, 8, 10],
+    'model__min_samples_split': [2, 5, 10, 15],
+    'model__min_samples_leaf': [1, 2, 4, 6],
+    'model__splitter': ['best', 'random'],
+    'model__max_features': [None, 'sqrt', 'log2']
+}
+
+cv = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 42)
+
+grid_search = GridSearchCV(
+    estimator = pipeline,
+    param_grid = param_grid,
+    cv = cv,
+    scoring = 'accuracy',
+    n_jobs = -1,
+    verbose = 1,
+)
+
 # Training model
-pipeline.fit(X_train, y_train)
+grid_search.fit(X_train, y_train)
+
+best_model = grid_search.best_estimator_
+
+# Testing model
+y_pred = best_model.predict(X_test)
+
+
+# Printing the best params
+print(f"Best params: {grid_search.best_params_}")
 
 # Evaluating the model acurracy
-validation_accuracy = pipeline.score(X_test, y_test) # We don't have validation yet
-test_accuracy = pipeline.score(X_test, y_test)
+validation_accuracy = grid_search.best_score_
+test_accuracy = accuracy_score(y_test, y_pred)
 
 print(f'The accuracy of the model in validation was {validation_accuracy*100:.2f}% and {test_accuracy*100:.2f}% in test')
 
 # Importance of features
-feature_names = pipeline['preprocessing'].get_feature_names_out()
-importances_values = pipeline['model'].feature_importances_
+feature_names = best_model[0].get_feature_names_out()
+importances_values = best_model['model'].feature_importances_
 importances = pd.Series(importances_values, index=feature_names).sort_values(ascending = False)
 
 print("Features importances:\n", importances)
 
 # Plotting the Confusion Matrix
-y_pred = pipeline.predict(X_test)
-
 cm = confusion_matrix(y_test, y_pred)
 
-disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels = pipeline['model'].classes_)
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels = best_model['model'].classes_)
 disp.plot(cmap='Blues')
 plt.title('Matriz de Confusão')
 plt.show()
@@ -70,7 +99,7 @@ plt.show()
 plt.figure(figsize=(20,10))
 
 tree.plot_tree(
-    pipeline['model'], 
+    best_model['model'], 
     filled = True, 
     feature_names = feature_names, 
     rounded = True,

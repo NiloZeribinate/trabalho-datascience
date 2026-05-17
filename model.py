@@ -14,6 +14,8 @@ set_config(transform_output="pandas")
 # Importing data
 df = pd.read_csv("class_german_credit.csv")
 
+df = df.drop(columns=['Purpose'])
+
 # Splitting data
 X = df.drop(columns='Risk')
 y = df['Risk']
@@ -27,7 +29,6 @@ preprocessor = ColumnTransformer(
         ('ord_housing', OrdinalEncoder(categories=[['free', 'rent', 'own']]), ['Housing']),
         ('ord_saving',  OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=np.nan, categories=[['little', 'moderate', 'rich', 'quite rich']]), ['Saving accounts']),
         ('ord_checking',OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=np.nan, categories=[['little', 'moderate', 'rich']]), ['Checking account']),
-        ('nom_purpose', OneHotEncoder(handle_unknown='ignore', sparse_output=False), ['Purpose']),
     ],
     remainder='passthrough',
     verbose_feature_names_out=False

@@ -3,10 +3,11 @@ import pandas as pd
 import numpy as np
 from sklearn import tree, set_config
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, FunctionTransformer
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 from sklearn.pipeline import Pipeline
+from sklearn.impute import KNNImputer
 
 # Configure sklearn to output pandas DataFrame
 set_config(transform_output="pandas")
@@ -37,7 +38,9 @@ preprocessor = ColumnTransformer(
 # Defining our pipeline
 pipeline = Pipeline([
     ('preprocessing', preprocessor),
-    ('model', tree.DecisionTreeClassifier(class_weight='balanced', random_state=42))
+    ('imputer', KNNImputer(n_neighbors = 5)),
+    ('rounder', FunctionTransformer(np.round)),
+    ('model', tree.DecisionTreeClassifier(class_weight='balanced', random_state=42)),
 ])
 
 

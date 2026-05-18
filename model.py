@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 from sklearn import tree, set_config
 from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, FunctionTransformer
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, FunctionTransformer, StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 from sklearn.pipeline import Pipeline
@@ -35,10 +36,35 @@ preprocessor = ColumnTransformer(
     verbose_feature_names_out=False
 )
 
+class ImputeInScaledSpace(BaseEstimator, TransformerMixin):
+    def __init__(self, n_neighbors = 5):
+        self.n_neighbors = n_neighbors
+        self.scaler = StandardScaler()
+        self.imputer = KNNImputer(n_neighbors = self.n_neighbors)
+
+    def fit(self, X, y = None):
+        X_scaled = self.scaler.fit_transform(X)
+        self.imputer.fit(X_scaled)
+        self.feature_names_out_ = self.scaler.get_feature_names_out()
+        return self
+
+    def transform(self, X):
+        X_scaled = self.scaler.transform(X)
+        X_imputed = self.imputer.transform(X_scaled)
+        X_unscaled = pd.DataFrame(
+            self.scaler.inverse_transform(X_imputed),
+            columns = self.feature_names_out_
+        )
+        
+        return X_unscaled
+
+    def get_feature_names_out(self, input_features=None):
+        return self.feature_names_out_
+
 # Defining our pipeline
 pipeline = Pipeline([
     ('preprocessing', preprocessor),
-    ('imputer', KNNImputer(n_neighbors = 5)),
+    ('imputerInScale', ImputeInScaledSpace()),
     ('rounder', FunctionTransformer(np.round)),
     ('model', tree.DecisionTreeClassifier(class_weight='balanced', random_state=42)),
 ])

@@ -18,7 +18,26 @@ set_config(transform_output="pandas")
 # Importing data
 df = pd.read_csv("class_german_credit.csv")
 
-df = df.drop(columns=['Purpose'])
+def purposeEncoder(df):
+    purpose_encoder = OneHotEncoder(handle_unknown='ignore',sparse_output=False)
+
+    purpose_encoder.fit(df[['Purpose']]) #fit
+
+    encoded = purpose_encoder.transform(df[['Purpose']]) # transform
+
+    df = df.drop(columns=['Purpose']) # drop original column
+    df = pd.concat([df, encoded], axis=1)
+    # # Merge the three columns into one
+    # cols_to_merge = ['Purpose_repairs', 'Purpose_vacation/others', 'Purpose_domestic appliances']
+    # existing_cols = [c for c in cols_to_merge if c in df.columns] #protects against keyerror, checks if columns exist in df
+
+    # if existing_cols:
+    #     df['Purpose_repairs/vacation/domestic'] = df[existing_cols].max(axis=1) #takes max of row in each existing_col 
+    #     df = df.drop(columns=existing_cols)
+
+    return df
+
+df=purposeEncoder(df)
 
 # Splitting data
 X = df.drop(columns='Risk')
@@ -86,6 +105,7 @@ pipeline = Pipeline([
     ('preprocessing', preprocessor),
     ('imputerInScale', ImputeInScaledSpace()),
     ('scaledSmote', scaled_smote_step),
+    ('rounder', FunctionTransformer(np.round)),
     ('model', tree.DecisionTreeClassifier(class_weight='balanced', random_state=42)),
 ])
 
@@ -142,7 +162,6 @@ cm = confusion_matrix(y_test, y_pred)
 disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels = best_model['model'].classes_)
 disp.plot(cmap='Blues')
 plt.title('Matriz de Confusão')
-plt.show()
 
 # Plotting the tree decision tree
 

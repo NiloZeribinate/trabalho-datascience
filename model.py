@@ -7,8 +7,10 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, FunctionTransformer, StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
-from sklearn.pipeline import Pipeline
+from imblearn.pipeline import Pipeline
 from sklearn.impute import KNNImputer
+from imblearn import FunctionSampler
+from imblearn.over_sampling import SMOTE
 
 # Configure sklearn to output pandas DataFrame
 set_config(transform_output="pandas")
@@ -39,7 +41,7 @@ preprocessor = ColumnTransformer(
 class ImputeInScaledSpace(BaseEstimator, TransformerMixin):
     def __init__(self, n_neighbors = 5):
         self.n_neighbors = n_neighbors
-        self.scaler = StandardScaler()
+        self.scaler = MinMaxScaler()
         self.imputer = KNNImputer(n_neighbors = self.n_neighbors)
 
     def fit(self, X, y = None):
@@ -61,11 +63,29 @@ class ImputeInScaledSpace(BaseEstimator, TransformerMixin):
     def get_feature_names_out(self, input_features=None):
         return self.feature_names_out_
 
+def ScaledSMOTE(X, y, random_state=42):
+    scaler = StandardScaler()
+    smote = SMOTE(random_state=random_state)
+
+    X_scaled = scaler.fit_transform(X)
+
+    X_resampled_scaled, y_resampled = smote.fit_resample(X_scaled, y)
+
+    X_resampled_unscaled = scaler.inverse_transform(X_resampled_scaled)
+
+    return pd.DataFrame(X_resampled_unscaled, columns=X.columns), y_resampled
+
+scaled_smote_step = FunctionSampler(
+    func=ScaledSMOTE,
+    validate=False,
+    kw_args={'random_state': 42}
+)
+
 # Defining our pipeline
 pipeline = Pipeline([
     ('preprocessing', preprocessor),
     ('imputerInScale', ImputeInScaledSpace()),
-    ('rounder', FunctionTransformer(np.round)),
+    ('scaledSmote', scaled_smote_step),
     ('model', tree.DecisionTreeClassifier(class_weight='balanced', random_state=42)),
 ])
 

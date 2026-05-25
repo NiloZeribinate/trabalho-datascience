@@ -18,7 +18,9 @@ set_config(transform_output="pandas")
 # Importing data
 df = pd.read_csv("class_german_credit.csv")
 
-df = df.drop(columns=['Purpose'])
+purposes_count = df['Purpose'].value_counts()
+
+df['Purpose'] = df['Purpose'].mask(df['Purpose'].isin(purposes_count[purposes_count < 95].index.to_list()), 'others')
 
 # Splitting data
 X = df.drop(columns='Risk')
@@ -32,12 +34,14 @@ preprocessor = ColumnTransformer(
         ('ord_sex', OrdinalEncoder(categories=[['female', 'male']]), ['Sex']),
         ('ord_housing', OrdinalEncoder(categories=[['free', 'rent', 'own']]), ['Housing']),
         ('ord_saving',  OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=np.nan, categories=[['little', 'moderate', 'rich', 'quite rich']]), ['Saving accounts']),
-        ('ord_checking',OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=np.nan, categories=[['little', 'moderate', 'rich']]), ['Checking account']),
+        ('ord_checking', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=np.nan, categories=[['little', 'moderate', 'rich']]), ['Checking account']),
+        ('nom_purpose', OneHotEncoder(handle_unknown='ignore', sparse_output=False), ['Purpose']),
     ],
     remainder='passthrough',
     verbose_feature_names_out=False
 )
 
+# Imputing missings with kNN after base normalization
 class ImputeInScaledSpace(BaseEstimator, TransformerMixin):
     def __init__(self, n_neighbors = 5):
         self.n_neighbors = n_neighbors
@@ -63,6 +67,7 @@ class ImputeInScaledSpace(BaseEstimator, TransformerMixin):
     def get_feature_names_out(self, input_features=None):
         return self.feature_names_out_
 
+# Creating artificial data after normalization
 def ScaledSMOTE(X, y, random_state=42):
     scaler = StandardScaler()
     smote = SMOTE(random_state=random_state)
@@ -144,7 +149,7 @@ disp.plot(cmap='Blues')
 plt.title('Matriz de Confusão')
 plt.show()
 
-# Plotting the tree decision tree
+# Plotting the decision tree
 
 plt.figure(figsize=(20,10))
 

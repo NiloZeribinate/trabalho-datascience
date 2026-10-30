@@ -11,6 +11,7 @@ from imblearn.pipeline import Pipeline
 from sklearn.impute import KNNImputer
 from imblearn import FunctionSampler
 from imblearn.over_sampling import SMOTE
+from sklearn.ensemble import GradientBoostingClassifier
 
 # Configure sklearn to output pandas DataFrame
 set_config(transform_output="pandas")
@@ -91,17 +92,16 @@ pipeline = Pipeline([
     ('preprocessing', preprocessor),
     ('imputerInScale', ImputeInScaledSpace()),
     ('scaledSmote', scaled_smote_step),
-    ('model', tree.DecisionTreeClassifier(class_weight='balanced', random_state=42)),
+    ('model', GradientBoostingClassifier(random_state=42)),
 ])
 
 
 # Cross-Validation
 param_grid = {
-    'model__criterion': ['gini', 'entropy', 'log_loss'],
     'model__max_depth': [None, 2, 3, 4, 5, 6, 8, 10],
     'model__min_samples_split': [2, 5, 10, 15],
     'model__min_samples_leaf': [1, 2, 4, 6],
-    'model__splitter': ['best', 'random'],
+    'model__n_estimators': [50, 100, 200],
     'model__max_features': [None, 'sqrt', 'log2']
 }
 
@@ -147,19 +147,4 @@ cm = confusion_matrix(y_test, y_pred)
 disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels = best_model['model'].classes_)
 disp.plot(cmap='Blues')
 plt.title('Matriz de Confusão')
-plt.show()
-
-# Plotting the decision tree
-
-plt.figure(figsize=(20,10))
-
-tree.plot_tree(
-    best_model['model'], 
-    filled = True, 
-    feature_names = feature_names, 
-    rounded = True,
-    precision = 2,
-    fontsize = 10
-)
-
 plt.show()

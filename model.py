@@ -6,11 +6,9 @@ from sklearn.compose import ColumnTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, FunctionTransformer, StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
-from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import f1_score, make_scorer, accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 from imblearn.pipeline import Pipeline
 from sklearn.impute import KNNImputer
-from imblearn import FunctionSampler
-from imblearn.over_sampling import SMOTE
 from sklearn.ensemble import GradientBoostingClassifier
 
 # Configure sklearn to output pandas DataFrame
@@ -68,30 +66,10 @@ class ImputeInScaledSpace(BaseEstimator, TransformerMixin):
     def get_feature_names_out(self, input_features=None):
         return self.feature_names_out_
 
-# Creating artificial data after normalization
-def ScaledSMOTE(X, y, random_state=42):
-    scaler = StandardScaler()
-    smote = SMOTE(random_state=random_state)
-
-    X_scaled = scaler.fit_transform(X)
-
-    X_resampled_scaled, y_resampled = smote.fit_resample(X_scaled, y)
-
-    X_resampled_unscaled = scaler.inverse_transform(X_resampled_scaled)
-
-    return pd.DataFrame(X_resampled_unscaled, columns=X.columns), y_resampled
-
-scaled_smote_step = FunctionSampler(
-    func=ScaledSMOTE,
-    validate=False,
-    kw_args={'random_state': 42}
-)
-
 # Defining our pipeline
 pipeline = Pipeline([
     ('preprocessing', preprocessor),
     ('imputerInScale', ImputeInScaledSpace()),
-    ('scaledSmote', scaled_smote_step),
     ('model', GradientBoostingClassifier(random_state=42)),
 ])
 
@@ -107,11 +85,13 @@ param_grid = {
 
 cv = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 42)
 
+f1_custom_scorer = make_scorer(f1_score, pos_label='bad')
+
 grid_search = GridSearchCV(
     estimator = pipeline,
     param_grid = param_grid,
     cv = cv,
-    scoring = 'accuracy',
+    scoring = f1_custom_scorer,
     n_jobs = -1,
     verbose = 1,
 )
@@ -132,7 +112,7 @@ print(f"Best params: {grid_search.best_params_}")
 validation_accuracy = grid_search.best_score_
 test_accuracy = accuracy_score(y_test, y_pred)
 
-print(f'The accuracy of the model in validation was {validation_accuracy*100:.2f}% and {test_accuracy*100:.2f}% in test')
+print(f'The accuracy of the model in validation was {validation_accuracy*100:.2f}% (f1-score) and {test_accuracy*100:.2f}% (accuracy) in test')
 
 # Importance of features
 feature_names = best_model[0].get_feature_names_out()
